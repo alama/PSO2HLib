@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace PSO2H
@@ -60,10 +61,19 @@ namespace PSO2H
             _pluginSource = pluginSource;
             _pluginConfigSource = pluginConfigSource;
 
+            //Maintain configuration settings
             if (File.Exists(_pluginFile))
                 PluginConfiguration = Configuration.ParseConfigurationFile(_pluginConfig);
 
             UpdatePlugin();
+
+            //One day I'll do this more elegantly
+            Dictionary<string, Configuration> newPluginConfiguration = Configuration.ParseConfigurationFile(_pluginConfig);
+            IEnumerable<string> newKeys = newPluginConfiguration.Keys.Except(PluginConfiguration.Keys);
+
+            foreach (string key in newKeys)
+                PluginConfiguration.Add(key, newPluginConfiguration[key]);
+
             WriteConfigurationToFile();
         }
 
@@ -153,8 +163,10 @@ namespace PSO2H
             if (localTime > remoteTime)
                 return DownloadStatus.UpToDate;
 
-            WebClient w = new WebClient();
-            w.DownloadFile(url, String.Format("{0}.tmp", local));
+            using (WebClient w = new WebClient())
+            {
+                w.DownloadFile(url, String.Format("{0}.tmp", local));
+            }
 
             if (File.Exists(local))
                 File.Delete(local);
