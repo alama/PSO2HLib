@@ -15,13 +15,11 @@ namespace PSO2H
         #region Class Variables
         public Dictionary<string, Configuration> PluginConfiguration;
 
-        private string _pluginName;
-        private string _pluginDescription;
         private string _pluginSource;
-        private string _pluginConfigSource;
+        private readonly string _pluginConfigSource;
         private string _pluginFile;
         private string _pluginConfig;
-        private Func<string, string, DownloadStatus> _downloadPlugin = null; //In = URL, In = Local File location, Out = Download Status, will run asynchronously
+        private readonly Func<string, string, DownloadStatus> _downloadPlugin; //In = URL, In = Local File location, Out = Download Status, will run asynchronously
 
         #endregion
 
@@ -55,8 +53,8 @@ namespace PSO2H
 
             _downloadPlugin = downloadPlugin;
 
-            _pluginName = pluginName;
-            _pluginDescription = pluginDescription;
+            PluginName = pluginName;
+            PluginDescription = pluginDescription;
 
             _pluginFile = Path.Combine(localPath, String.Concat(pluginName, ".dll"));
             _pluginConfig = Path.Combine(localPath, String.Concat(pluginName, ".cfg"));
@@ -84,21 +82,9 @@ namespace PSO2H
 
         #region Properties
 
-        public string PluginName
-        {
-            get
-            {
-                return _pluginName;
-            }
-        }
+        public string PluginName { get; }
 
-        public string PluginDescription
-        {
-            get
-            {
-                return _pluginDescription;
-            }
-        }
+        public string PluginDescription { get; }
 
         public string PluginSource
         {
@@ -147,13 +133,8 @@ namespace PSO2H
         //E.g. url = http://vxyz.me/files/PSO2DamageDump.cfg, local = G:\Games\PSO2\Plugins\PSO2DamageDump.cfg
         public static DownloadStatus DefaultDownload(string url, string local)
         {
-            DateTime localTime, remoteTime;
-
             //Get local last updated datetime
-            if (File.Exists(local))
-                localTime = File.GetLastWriteTimeUtc(local);
-            else
-                localTime = DateTime.MinValue.ToUniversalTime();
+            var localTime = File.Exists(local) ? File.GetLastWriteTimeUtc(local) : DateTime.MinValue.ToUniversalTime();
 
             //Get remote last updated datetime
             var request = (HttpWebRequest)WebRequest.Create(url);
@@ -161,20 +142,20 @@ namespace PSO2H
             var response = (HttpWebResponse)request.GetResponse();
             response.Close();
 
-            remoteTime = response.LastModified.ToUniversalTime();
+            var remoteTime = response.LastModified.ToUniversalTime();
 
             if (localTime > remoteTime)
                 return DownloadStatus.UpToDate;
 
             using (WebClient w = new WebClient())
             {
-                w.DownloadFile(url, String.Format("{0}.tmp", local));
+                w.DownloadFile(url, Path.ChangeExtension(local, "tmp"));
             }
 
             if (File.Exists(local))
                 File.Delete(local);
 
-            File.Move(String.Format("{0}.tmp", local), local);
+            File.Move(Path.ChangeExtension(local, "tmp"), local);
 
             return DownloadStatus.Success;
         }
@@ -183,25 +164,18 @@ namespace PSO2H
         //Will throw exceptions if not setup correctly
         public async void UpdatePlugin()
         {
-            if (_pluginSource == null || _pluginSource.Length == 0)
+            if (string.IsNullOrEmpty(_pluginSource) || !Uri.IsWellFormedUriString(_pluginSource, UriKind.Absolute))
                 throw new Exception("Plugin source not configured.");
 
             if (_downloadPlugin == null)
                 throw new Exception("Download function isn't configured.");
 
-            try
-            {
-                //Yes this will not handle well when somehow your configuration and file are the same file
-                Task[] downloadTasks = {
-                    Task.Run(() => _downloadPlugin(_pluginSource, _pluginFile)),
-                    Task.Run(() => _downloadPlugin(_pluginConfigSource, _pluginConfig)) //No problem redownloading this because we should already have the config results saved
-                };
-                await Task.WhenAll(downloadTasks);
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
+            //Yes this will not handle well when somehow your configuration and file are the same file
+            Task[] downloadTasks = {
+                Task.Run(() => _downloadPlugin(_pluginSource, _pluginFile)),
+                Task.Run(() => _downloadPlugin(_pluginConfigSource, _pluginConfig)) //No problem redownloading this because we should already have the config results saved
+	        };
+            await Task.WhenAll(downloadTasks);
         }
 
         public void WriteConfigurationToFile(string configPath = null)

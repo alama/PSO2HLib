@@ -7,6 +7,7 @@ namespace PSO2H
 {
     public class Configuration
     {
+        // TODO: Add a config type enum
         public readonly string Name;
         public string Value;
         public readonly string Type;
@@ -16,7 +17,6 @@ namespace PSO2H
         {
             Name = configName;
             Value = configValue;
-#warning TODO: Add a config type enum
             Type = configType;
             Comment = comment;
         }
@@ -33,9 +33,11 @@ namespace PSO2H
                 {
                     Match m = format.Match(line);
                     if (m.Groups.Count != 4)
-                        throw new Exception(String.Format("ParseConfigurationFile: Error parsing {0}", fullFilePath));
+                        throw new Exception($"ParseConfigurationFile: Error parsing {fullFilePath}");
 
                     Configuration cfg = new Configuration(m.Groups[0].Value, m.Groups[1].Value, m.Groups[3].Value, m.Groups[4].Value);
+
+                    retVal.Add(cfg.Name, cfg);
                 }
             }
             catch (FileNotFoundException)
@@ -52,7 +54,7 @@ namespace PSO2H
 
             //Key[type;comment]=Value
             foreach (KeyValuePair<string, Configuration> config in configs)
-                sw.WriteLine(String.Format("{0}[{1};{2}]={3}", config.Key, config.Value.Type, config.Value.Comment, config.Value.Value));
+                sw.WriteLine($"{config.Key}[{config.Value.Type};{config.Value.Comment}]={config.Value.Value}");
             return sw.ToString();
         }
     }
