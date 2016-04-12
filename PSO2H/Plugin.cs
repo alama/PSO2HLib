@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
 
 namespace PSO2H
 {
@@ -20,7 +21,7 @@ namespace PSO2H
         private string _pluginConfigSource;
         private string _pluginFile;
         private string _pluginConfig;
-        private Func<string, string, DownloadStatus> _downloadPlugin = null; //In = URL, In = Local File location, Out = Download Status
+        private Func<string, string, DownloadStatus> _downloadPlugin = null; //In = URL, In = Local File location, Out = Download Status, will run asynchronously
 
         #endregion
 
@@ -51,6 +52,8 @@ namespace PSO2H
 
             if (downloadPlugin == null)
                 downloadPlugin = DefaultDownload;
+
+            _downloadPlugin = downloadPlugin;
 
             _pluginName = pluginName;
             _pluginDescription = pluginDescription;
@@ -178,7 +181,7 @@ namespace PSO2H
 
         //Update plugin based on defined plugin source and update function
         //Will throw exceptions if not setup correctly
-        public void UpdatePlugin()
+        public async void UpdatePlugin()
         {
             if (_pluginSource == null || _pluginSource.Length == 0)
                 throw new Exception("Plugin source not configured.");
@@ -188,9 +191,12 @@ namespace PSO2H
 
             try
             {
-                _downloadPlugin(_pluginSource, _pluginFile);
-                //No problem redownloading this because we should already have the config results saved
-                _downloadPlugin(_pluginConfigSource, _pluginConfig); 
+                //Yes this will not handle well when somehow your configuration and file are the same file
+                Task[] downloadTasks = {
+                    Task.Run(() => _downloadPlugin(_pluginSource, _pluginFile)),
+                    Task.Run(() => _downloadPlugin(_pluginConfigSource, _pluginConfig)) //No problem redownloading this because we should already have the config results saved
+                };
+                await Task.WhenAll(downloadTasks);
             }
             catch (Exception ex)
             {
