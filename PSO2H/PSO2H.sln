@@ -1,11 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSO2H", "PSO2H.csproj", "{9D682FD9-BB27-497A-9590-A29B99139E19}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSO2H.Test", "..\PSO2H.Test\PSO2H.Test.csproj", "{03715EB4-A306-4189-9EA6-5EC52F392A16}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9D682FD9-BB27-497A-9590-A29B99139E19} = {9D682FD9-BB27-497A-9590-A29B99139E19}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

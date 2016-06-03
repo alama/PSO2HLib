@@ -1,14 +1,13 @@
 # PSO2HLib
 
+PSO2 Plugin Package for launcher applications like Dogstar and PSO2 
+Tweaker.
+
+Provides an interface to download/update plugins and handle reading and 
+writing to configurations. 
+
 TODO:
 
--Unit Testing
-
--Enumerable Plugins class to mass load all plugins in a given directory
-
--Probably more validation
-
--Configuration Type definition for standardizing
-
+-More Unit Tests
+-Update README with more specifications
 -Better documentation for the entire plugin framework
-

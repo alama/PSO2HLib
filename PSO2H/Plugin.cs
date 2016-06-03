@@ -19,6 +19,7 @@ namespace PSO2H
         private readonly string _pluginConfigSource;
         private string _pluginFile;
         private string _pluginConfig;
+        private double _currentVersion;
         private readonly Func<string, string, DownloadStatus> _downloadPlugin; //In = URL, In = Local File location, Out = Download Status, will run asynchronously
 
         #endregion
@@ -38,15 +39,19 @@ namespace PSO2H
 
         #region Constructors
 
-        //Expect a JSON in the format: { "PluginName":"<Name>", "PluginDescription":"<Description>", "PluginSource":"<SourceURL>" "PluginConfigSource":"<ConfigSourceURL>" }
+        //Expect a JSON in the format: { "Name":"<Plugin Name>", "CurrentVersion":<Floating Point Number for Plugin Version>, "Plugin":"<Link to DLL>", "Configuration":"<Link to Configuration>", "Description":"<A description of the plugin>" }
         //localPath is the folder for the plugins (E.G. G:\Games\PSO2\Plugins)
-        public Plugin(string jsonPluginConfig, string localPath, Func<string, string, DownloadStatus> downloadPlugin = null)
+        //currVersion is the current local version. It's expected that the client application handles storing this somehow.
+        public Plugin(string jsonPluginConfig, string localPath, out string errMsg, double currVersion = 0.0, Func<string, string, DownloadStatus> downloadPlugin = null)
         {
+            errMsg = "";
             JObject info = JObject.Parse(jsonPluginConfig);
-            string pluginName = info["PluginName"].Value<string>();
-            string pluginDescription = info["PluginDescription"].Value<string>();
-            string pluginSource = info["PluginSource"].Value<string>();
-            string pluginConfigSource = info["PluginConfigSource"].Value<string>();
+            string pluginName = info["Name"].Value<string>();
+            string pluginDescription = info["Description"].Value<string>();
+            string pluginSource = info["Plugin"].Value<string>();
+            string pluginConfigSource = info["Configuration"].Value<string>() ?? "";
+
+            localPath = Path.GetFullPath(localPath);
 
             if (downloadPlugin == null)
                 downloadPlugin = DefaultDownload;
@@ -56,6 +61,8 @@ namespace PSO2H
             PluginName = pluginName;
             PluginDescription = pluginDescription;
 
+            if (!Directory.Exists(localPath))
+                Directory.CreateDirectory(localPath);
             _pluginFile = Path.Combine(localPath, String.Concat(pluginName, ".dll"));
             _pluginConfig = Path.Combine(localPath, String.Concat(pluginName, ".cfg"));
 
@@ -65,17 +72,34 @@ namespace PSO2H
             //Maintain configuration settings
             if (File.Exists(_pluginFile))
                 PluginConfiguration = Configuration.ParseConfigurationFile(_pluginConfig);
+            else
+                PluginConfiguration = new Dictionary<string, Configuration>();
 
-            UpdatePlugin();
+            _currentVersion = info["CurrentVersion"].Value<double>();
 
-            //One day I'll do this more elegantly
-            Dictionary<string, Configuration> newPluginConfiguration = Configuration.ParseConfigurationFile(_pluginConfig);
-            IEnumerable<string> newKeys = newPluginConfiguration.Keys.Except(PluginConfiguration.Keys);
+            if (currVersion != _currentVersion)
+            {
+                UpdatePlugin();
 
-            foreach (string key in newKeys)
-                PluginConfiguration.Add(key, newPluginConfiguration[key]);
+                //Get any new parameters that weren't available before, and add new configurations
+                Dictionary<string, Configuration> newPluginConfiguration = Configuration.ParseConfigurationFile(_pluginConfig);
+                foreach (string key in newPluginConfiguration.Keys)
+                {
+                    if (PluginConfiguration.ContainsKey(key))
+                    {
+                        PluginConfiguration[key].Type = newPluginConfiguration[key].Type;
+                        PluginConfiguration[key].Parameters = PluginConfiguration[key].Parameters.Union(newPluginConfiguration[key].Parameters);
+                        if (PluginConfiguration[key].Type != ConfigurationType.STRING && !PluginConfiguration[key].Parameters.Contains(PluginConfiguration[key].Value))
+                            errMsg += $"Warning: The current value of the parameter for {key} is not in the list of parameters\n";
+                    }
+                    else
+                    {
+                        PluginConfiguration.Add(key, newPluginConfiguration[key]);
+                    }
+                }
 
-            WriteConfigurationToFile();
+                WriteConfigurationToFile();
+            }
         }
 
         #endregion
@@ -83,6 +107,8 @@ namespace PSO2H
         #region Properties
 
         public string PluginName { get; }
+
+        public double CurrentVersion { get { return _currentVersion; } }
 
         public string PluginDescription { get; }
 
@@ -133,36 +159,24 @@ namespace PSO2H
         //E.g. url = http://vxyz.me/files/PSO2DamageDump.cfg, local = G:\Games\PSO2\Plugins\PSO2DamageDump.cfg
         public static DownloadStatus DefaultDownload(string url, string local)
         {
-            //Get local last updated datetime
-            var localTime = File.Exists(local) ? File.GetLastWriteTimeUtc(local) : DateTime.MinValue.ToUniversalTime();
-
-            //Get remote last updated datetime
-            var request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = "HEAD";
-            var response = (HttpWebResponse)request.GetResponse();
-            response.Close();
-
-            var remoteTime = response.LastModified.ToUniversalTime();
-
-            if (localTime > remoteTime)
-                return DownloadStatus.UpToDate;
-
+            string ext = Path.GetExtension(local) ?? "";
+            string tmpFileName = Path.ChangeExtension(local, ext + "tmp");
             using (WebClient w = new WebClient())
             {
-                w.DownloadFile(url, Path.ChangeExtension(local, "tmp"));
+                w.DownloadFile(url, tmpFileName);
             }
 
             if (File.Exists(local))
                 File.Delete(local);
 
-            File.Move(Path.ChangeExtension(local, "tmp"), local);
+            File.Move(tmpFileName, local);
 
             return DownloadStatus.Success;
         }
 
         //Update plugin based on defined plugin source and update function
         //Will throw exceptions if not setup correctly
-        public async void UpdatePlugin()
+        public void UpdatePlugin()
         {
             if (string.IsNullOrEmpty(_pluginSource) || !Uri.IsWellFormedUriString(_pluginSource, UriKind.Absolute))
                 throw new Exception("Plugin source not configured.");
@@ -173,13 +187,17 @@ namespace PSO2H
             //Yes this will not handle well when somehow your configuration and file are the same file
             Task[] downloadTasks = {
                 Task.Run(() => _downloadPlugin(_pluginSource, _pluginFile)),
-                Task.Run(() => _downloadPlugin(_pluginConfigSource, _pluginConfig)) //No problem redownloading this because we should already have the config results saved
+                Task.Run(() => _pluginConfigSource.Length > 0 ? _downloadPlugin(_pluginConfigSource, _pluginConfig) : DownloadStatus.UpToDate ) //No problem redownloading this because we should already have the config results saved
 	        };
-            await Task.WhenAll(downloadTasks);
+
+            Task.WaitAll(downloadTasks);
         }
 
         public void WriteConfigurationToFile(string configPath = null)
         {
+            if (PluginConfiguration.Count == 0) //Don't write configuration files for things that don't have any
+                return;
+
             if (configPath == null)
                 configPath = _pluginConfig;
 
