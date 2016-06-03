@@ -9,5 +9,7 @@ writing to configurations.
 TODO:
 
 -More Unit Tests
+
 -Update README with more specifications
+
 -Better documentation for the entire plugin framework
