@@ -1,0 +1,9 @@
+version: 1.0.{build}
+before_build:
+- cmd: >-
+    cd PSO2H
+    nuget restore
+    cd ..
+
+build:
+  verbosity: minimal
