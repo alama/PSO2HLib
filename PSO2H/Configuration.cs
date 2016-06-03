@@ -98,7 +98,7 @@ namespace PSO2H
             //Key[type;param1,param2,param3...]=Value
             try
             {
-                foreach (string line in File.ReadLines(fullFilePath))
+                foreach (string line in File.ReadLines(fullFilePath).Where(x => x.Length > 0))
                 {
                     Match m = configFormat.Match(line);
                     if (m.Groups.Count != 5)
