@@ -15,8 +15,10 @@ after_build:
 - cmd: git rev-parse --short %APPVEYOR_REPO_COMMIT%>%TMP%/gitshort.txt
 - cmd: set /P GITSHORT=<%TMP%/gitshort.txt
 - set BUILD_ARCHIVE=%APPVEYOR_REPO_BRANCH%-%GITSHORT%-%CONFIGURATION%.7z
-- cmd: 7z a %BUILD_ARCHIVE% PSO2H\bin\%CONFIGURATION% -xr!.gitignore
+- cmd: cd PSO2H\bin\%CONFIGURATION%
+- cmd: 7z a %BUILD_ARCHIVE% *.* -xr!.gitignore
 - appveyor PushArtifact %BUILD_ARCHIVE%
+- cmd: ..\..\..
 
 build:
   verbosity: minimal
