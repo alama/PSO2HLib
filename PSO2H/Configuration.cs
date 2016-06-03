@@ -24,13 +24,16 @@ namespace PSO2H
         public ConfigurationType Type;
         public IEnumerable<string> Parameters; //Parameters are parsed out as a CSV
 
-        public Configuration(string configName, string configType, string parameters, string configValue)
+        public Configuration(string configName, string configType, string parameters, string configValue, bool validateParams)
         {
             Name = configName;
             Value = configValue ?? "";
             if (!Enum.TryParse<ConfigurationType>(configType, out Type))
                 throw new Exception($"Configuration Type {configType} not recognized.");
             Parameters = parameters.Split(',');
+            string errMsg;
+            if (validateParams && !ValidateParameters(Type, Parameters, out errMsg))
+                throw new Exception($"Error: Failed to validate configuration {Name}. {errMsg}");
         }
 
         //For Parameter Validation. Returns false if the parameters don't match the expected format for the configType
@@ -88,7 +91,7 @@ namespace PSO2H
 
         public static Regex configFormat = new Regex(@"(^[^[]*)\[([a-zA-Z]*);([^\]]*)]=([^\n\r]*)");
 
-        public static Dictionary<string, Configuration> ParseConfigurationFile(string fullFilePath)
+        public static Dictionary<string, Configuration> ParseConfigurationFile(string fullFilePath, bool validateParams = true)
         {
             Dictionary<string, Configuration> retVal = new Dictionary<string, Configuration>();
 
@@ -101,7 +104,7 @@ namespace PSO2H
                     if (m.Groups.Count != 5)
                         throw new Exception($"ParseConfigurationFile: Error parsing {fullFilePath}");
 
-                    Configuration cfg = new Configuration(m.Groups[1].Value, m.Groups[2].Value, m.Groups[3].Value, m.Groups[4].Value);
+                    Configuration cfg = new Configuration(m.Groups[1].Value, m.Groups[2].Value, m.Groups[3].Value, m.Groups[4].Value, validateParams);
 
                     retVal.Add(cfg.Name, cfg);
                 }
