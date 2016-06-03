@@ -18,7 +18,7 @@ after_build:
 - cmd: cd PSO2H\bin\%CONFIGURATION%
 - cmd: 7z a %BUILD_ARCHIVE% *.* -xr!.gitignore
 - appveyor PushArtifact %BUILD_ARCHIVE%
-- cmd: ..\..\..
+- cmd: cd ..\..\..
 
 build:
   verbosity: minimal
