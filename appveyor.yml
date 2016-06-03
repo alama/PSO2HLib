@@ -1,4 +1,8 @@
 version: 1.0.{build}
+
+cache:
+- PSO2H\packages -> **\PSO2H\packages.config
+
 before_build:
 - cmd: >-
     nuget restore PSO2H\PSO2H.sln
