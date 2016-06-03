@@ -201,7 +201,7 @@ namespace PSO2H
             if (configPath == null)
                 configPath = _pluginConfig;
 
-            FileStream config = File.OpenWrite(configPath);
+            FileStream config = File.Create(configPath);
             StreamWriter sw = new StreamWriter(config);
             sw.Write(Configuration.ConfigurationsToString(PluginConfiguration));
             sw.Close();
